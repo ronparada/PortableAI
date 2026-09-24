@@ -1,0 +1,32 @@
+PORTABLE OFFLINE AI - STUDENT QUICK START
+=========================================
+
+1. Copy or extract the entire PortableAI folder onto the large USB partition.
+   Do not put it on the small VTOYEFI partition.
+2. Open PortableAI, then open Windows, macOS, or Linux.
+3. Read README-FIRST.txt.
+4. Run file 1 and choose Standard setup.
+5. Run file 2 to start Qwen Chat.
+6. Keep the terminal window open while chatting.
+7. When finished, close the browser and follow the terminal's stop prompt.
+
+WHAT THE OPTIONS MEAN
+---------------------
+Qwen 3 4B is the recommended portable assistant.
+
+Nous Hermes 3 3B is an optional second language model made by Nous Research.
+It is an ordinary offline text model in this kit.
+
+File 1 offers only three setup choices:
+  1. Qwen only - recommended
+  2. Both language models
+  3. Nous Hermes 3 model only
+
+PRIVACY AND INSTALLATION
+------------------------
+Files 1 through 4 use the USB folder. Internet is needed only to download
+missing files. The chat works locally afterward.
+
+If security software blocks a file, do not disable the security software.
+Record the filename and message and ask your instructor or campus IT to review
+it. The kit verifies downloaded files with pinned SHA-256 hashes.

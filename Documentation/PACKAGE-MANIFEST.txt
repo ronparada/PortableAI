@@ -1,0 +1,21 @@
+PORTABLE OFFLINE AI - PACKAGE MANIFEST
+======================================
+
+Standard setup (menu option 1):
+- Qwen3-4B-Q4_K_M.gguf
+- Current upstream SHA-256: FBE1D5EDD4CE802AE3AE7C7E4AB7D09789D697FDAC1FC7929F8DF4CA3C41BAE3
+- Accepted prepared-USB SHA-256: 7485FE6F11AF29433BC51CAB58009521F205840F5B4AE3A32FA7F92E8534FDF5
+
+Optional alternate model (included by menu option 2 or alone by option 3):
+- Hermes-3-Llama-3.2-3B-Q4_K_M.gguf
+- Display name: Nous Hermes 3 3B language model
+- SHA-256: 2E220A14BA4328FEE38CF36C2C068261560F999FADB5725CE5C6D977CB5126B5
+
+Engine:
+- llama.cpp release b10964
+- OS- and architecture-specific archives are pinned by SHA-256 in the setup scripts.
+- Windows x64 includes signed Microsoft Visual C++ 14.44.35211 app-local DLLs
+  beside the engine, avoiding a system-wide runtime installation.
+
+The GitHub/source ZIP omits GGUF models, runtime binaries, downloaded archives,
+logs, and cache. Those files are created or downloaded on demand.

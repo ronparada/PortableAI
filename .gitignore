@@ -1,0 +1,9 @@
+_PortableAI-System/models/*.gguf
+_PortableAI-System/runtime/*
+!_PortableAI-System/runtime/.gitkeep
+_PortableAI-System/data/*
+!_PortableAI-System/data/.gitkeep
+_PortableAI-System/downloads/*
+!_PortableAI-System/downloads/.gitkeep
+*.zip
+*.part

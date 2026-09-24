@@ -1,0 +1,22 @@
+PORTABLE OFFLINE AI - START HERE
+================================
+
+This kit has two portable language models. Neither installs an AI application
+on the computer:
+
+  - Qwen 3 4B: recommended general, writing, and coding assistant
+  - Nous Hermes 3 3B: a second, smaller language model from Nous Research
+
+The Nous Hermes 3 model is a real language model from Nous Research.
+
+FIRST USE
+---------
+1. Keep the entire PortableAI folder together on the large USB partition.
+2. Open Windows, macOS, or Linux.
+3. Read README-FIRST.txt.
+4. Run file 1. Standard setup is the easiest choice.
+5. Run file 2 for Qwen or file 3 for the Nous Hermes 3 model.
+6. Run file 4 when finished or if a previous chat window was closed early.
+
+Setup needs internet only when an engine or model is missing. After setup,
+the portable chat models run locally and can work offline.
