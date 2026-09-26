@@ -43,7 +43,7 @@ try {
   foreach ($backend in $backends) {
     $exe=Join-Path $systemRoot ($backend.Path+'\llama-server.exe'); if (-not (Test-Path -LiteralPath $exe)) { continue }
     Write-Host "Loading $Model with $($backend.Name). A USB drive can take a minute..." -ForegroundColor Cyan
-    $arguments=@('-m',$modelPath,'--alias','portable-ai','--host','127.0.0.1','--port',"$port",'-c','8192','-ngl',$backend.Layers,'--offline','--reasoning','off','--no-webui-mcp-proxy','--parallel','1')
+    $arguments=@('-m',$modelPath,'--alias','portable-ai','--host','127.0.0.1','--port',"$port",'--cors-origins',"http://127.0.0.1:$port,http://localhost:$port",'--no-cors-credentials','-c','8192','-ngl',$backend.Layers,'--offline','--reasoning','off','--no-webui-mcp-proxy','--parallel','1')
     $server=Start-Process -FilePath $exe -ArgumentList $arguments -WorkingDirectory (Split-Path $exe) -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logRoot 'server-out.log') -RedirectStandardError (Join-Path $logRoot 'server-error.log')
     Set-Content -LiteralPath $pidFile -Value $server.Id -Encoding Ascii
     $deadline=(Get-Date).AddMinutes(4)
