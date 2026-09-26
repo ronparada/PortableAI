@@ -21,7 +21,7 @@ if [ -f "$PID_FILE" ]; then
   rm -f "$PID_FILE"
 fi
 if curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then printf 'Port %s is busy. Run 4-STOP-PORTABLE-AI.sh and try again.\n' "$PORT" >&2; exit 1; fi
-"$SERVER" -m "$MODEL_FILE" --alias portable-ai --host 127.0.0.1 --port "$PORT" -c 8192 -ngl "$layers" --offline --reasoning off --no-webui-mcp-proxy --parallel 1 >"$SYSTEM_ROOT/data/logs/server-out.log" 2>"$SYSTEM_ROOT/data/logs/server-error.log" &
+"$SERVER" -m "$MODEL_FILE" --alias portable-ai --host 127.0.0.1 --port "$PORT" --cors-origins "http://127.0.0.1:$PORT,http://localhost:$PORT" --no-cors-credentials -c 8192 -ngl "$layers" --offline --reasoning off --no-webui-mcp-proxy --parallel 1 >"$SYSTEM_ROOT/data/logs/server-out.log" 2>"$SYSTEM_ROOT/data/logs/server-error.log" &
 server_pid=$!; printf '%s\n' "$server_pid" > "$PID_FILE"
 cleanup() { kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true; rm -f "$PID_FILE"; }; trap cleanup EXIT HUP INT TERM
 printf 'Loading %s. A USB drive can take a minute...\n' "$MODEL"; ready=0
