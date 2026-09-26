@@ -23,6 +23,8 @@ The former “chat engine only” choice was removed because it produced a setup
 
 The standard kit downloads release binaries from the official `llama.cpp` project and model files from Hugging Face, then verifies pinned SHA-256 hashes before using them. Executables downloaded to removable media can still trigger endpoint-security policy or reputation warnings.
 
+The model server listens only on the local computer (`127.0.0.1`). Its browser access is limited to the local PortableAI page, and optional tool features are disabled.
+
 Do not tell students to disable antivirus protection or add broad exclusions. Record the exact file and detection, retain the hash, and have campus IT review or allow-list the approved package. The standard Qwen workflow should remain the classroom baseline.
 
 ## Portability limits
