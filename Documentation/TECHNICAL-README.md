@@ -2,7 +2,7 @@
 
 This kit runs local GGUF language models through `llama.cpp`. The models, downloaded runtimes, cache, logs, and temporary files stay under `_PortableAI-System` on the USB.
 
-## Student workflow
+## Setup workflow
 
 The first setup menu has three choices:
 
@@ -10,7 +10,7 @@ The first setup menu has three choices:
 2. Qwen 3 4B plus Nous Hermes 3 3B, approximately 4.7 GB.
 3. Nous Hermes 3 3B only, approximately 2.2 GB.
 
-The former “chat engine only” choice was removed because it produced a setup that students could not use until they separately added a model.
+The former “chat engine only” choice was removed because it produced a setup that could not be used until a model was separately added.
 
 | Model | Role | Approximate model size |
 |---|---|---:|
@@ -25,7 +25,7 @@ The standard kit downloads release binaries from the official `llama.cpp` projec
 
 The model server listens only on the local computer (`127.0.0.1`). Its browser access is limited to the local PortableAI page, and optional tool features are disabled.
 
-Do not tell students to disable antivirus protection or add broad exclusions. Record the exact file and detection, retain the hash, and have campus IT review or allow-list the approved package. The standard Qwen workflow should remain the classroom baseline.
+Do not disable antivirus protection or add broad exclusions. Record the exact file and detection, retain the hash, and have the device administrator review or allow-list the approved package. The standard Qwen workflow is the recommended baseline.
 
 ## Portability limits
 
@@ -37,7 +37,7 @@ Do not tell students to disable antivirus protection or add broad exclusions. Re
 
 ## Distribution
 
-The GitHub/source ZIP excludes models, runtimes, downloads, and generated data. Students run setup to retrieve the selected files. A prepared classroom USB may include verified models and one or more runtimes. The runtime for a different operating system can be added to the same folder during first use.
+The GitHub/source ZIP excludes models, runtimes, downloads, and generated data. Run setup to retrieve the selected files. A prepared USB may include verified models and one or more runtimes. The runtime for a different operating system can be added to the same folder during first use.
 
 Upstream projects:
 
