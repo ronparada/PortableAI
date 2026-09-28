@@ -1,0 +1,28 @@
+PORTABLEAI - THUMBDRIVE INTEGRATION
+===================================
+
+PortableAI is an optional USB tool. It does not install an operating system,
+change boot records, or modify YUMI, Ventoy, MedicaT, PortableApps, Netboot.xyz,
+or Clonezilla.
+
+WHERE TO PUT IT
+---------------
+Copy or extract the complete PortableAI folder to the large exFAT data
+partition, beside the other tool folders. Do not place it on the small FAT
+boot/VTOYEFI partition.
+
+Example:
+  <exFAT data partition>\PortableAI\Windows\1-SETUP-PORTABLE-CHAT.cmd
+
+FIRST USE
+---------
+Connect the USB to a compatible computer while online. Open the operating
+system folder, read README-FIRST.txt, and run file 1. After setup, run file 2
+for Qwen or file 3 for Nous Hermes 3. Model files and runtimes remain in
+PortableAI\_PortableAI-System on the USB.
+
+SPACE
+-----
+Allow about 2.7 GB for Qwen with its runtime, or about 4.7 GB for both models.
+The source ZIP is small because it downloads the runtime and selected model on
+first use. A prepared drive can retain those downloaded files for offline use.
