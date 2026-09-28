@@ -11,7 +11,7 @@ The Nous Hermes 3 model is a real language model from Nous Research.
 
 FIRST USE
 ---------
-1. Keep the entire PortableAI folder together on the large USB partition.
+1. Keep the entire PortableAI folder together on the large exFAT data partition.
 2. Open Windows, macOS, or Linux.
 3. Read README-FIRST.txt.
 4. Run file 1. Standard setup is the easiest choice.
