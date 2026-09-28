@@ -2,7 +2,7 @@
 
 Use this checklist on Windows, Apple Silicon macOS, and a current Ubuntu-compatible Linux computer.
 
-## Portable student workflow
+## Portable tool workflow
 
 1. Copy or extract a clean source package to the USB.
 2. Run file 1 while online and choose option 1.
