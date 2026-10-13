@@ -67,7 +67,8 @@ $messages=[Collections.Generic.List[object]]::new()
 $messages.Add(@{role='system';content=$systemMessage})
 $script:pendingPlan=@()
 Write-Host "Lab Assistant ready. Folder: $root" -ForegroundColor Green
-Write-Host 'Ask a question, type /apply to approve the last sort preview, or /exit.'
+Write-Host 'Type your questions in THIS terminal window. The browser chat does not have file tools.'
+Write-Host 'Type /apply to approve the last sort preview, or /exit.'
 while ($true) {
   $inputText=Read-Host 'Lab'
   if ($inputText -eq '/exit') { break }
