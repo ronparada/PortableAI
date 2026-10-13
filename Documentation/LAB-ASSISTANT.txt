@@ -4,7 +4,10 @@ PORTABLEAI - OPTIONAL LAB ASSISTANT (WINDOWS)
 Run the regular setup first and install Qwen. Then double-click
 Windows\5-START-LAB-ASSISTANT.cmd and choose a lab folder. You can type its
 full path or drag the folder into the window. Keep the window open while using
-the assistant. Type /exit when finished.
+the assistant. Type questions in that terminal window, not in the browser
+chat page. Type /exit when finished. The folder must already exist; use File
+Explorer to locate it rather than guessing its path. A Screenshots folder may
+be under OneDrive\Pictures on Windows.
 
 Try prompts such as:
   Find hidden files whose names contain flag.
