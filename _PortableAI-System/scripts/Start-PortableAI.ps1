@@ -1,5 +1,15 @@
 param([ValidateSet('qwen','hermes')][string]$Model='qwen',[switch]$NoBrowser,[switch]$TestOnly,[string]$LabRoot)
 $ErrorActionPreference='Stop'
+if ($LabRoot) {
+  try {
+    $LabRoot=(Resolve-Path -LiteralPath $LabRoot -ErrorAction Stop).Path
+    if (-not (Test-Path -LiteralPath $LabRoot -PathType Container)) { throw 'That path is not a folder.' }
+  } catch {
+    Write-Host "Lab folder not found: $LabRoot" -ForegroundColor Red
+    Write-Host 'Choose an existing folder in File Explorer and drag it into this window.'
+    exit 1
+  }
+}
 $systemRoot=Split-Path -Parent $PSScriptRoot; $root=Split-Path -Parent $systemRoot; $dataRoot=Join-Path $systemRoot 'data'; $logRoot=Join-Path $dataRoot 'logs'; $tempRoot=Join-Path $dataRoot 'temp'
 New-Item -ItemType Directory -Force -Path $dataRoot,$logRoot,$tempRoot | Out-Null
 $env:LLAMA_CACHE=Join-Path $dataRoot 'cache'; $env:TEMP=$tempRoot; $env:TMP=$tempRoot
@@ -44,6 +54,7 @@ try {
     $exe=Join-Path $systemRoot ($backend.Path+'\llama-server.exe'); if (-not (Test-Path -LiteralPath $exe)) { continue }
     Write-Host "Loading $Model with $($backend.Name). A USB drive can take a minute..." -ForegroundColor Cyan
     $arguments=@('-m',$modelPath,'--alias','portable-ai','--host','127.0.0.1','--port',"$port",'--cors-origins',"http://127.0.0.1:$port,http://localhost:$port",'--no-cors-credentials','-c','8192','-ngl',$backend.Layers,'--offline','--reasoning','off','--no-webui-mcp-proxy','--parallel','1')
+    if ($LabRoot) { $arguments += '--no-webui' }
     $server=Start-Process -FilePath $exe -ArgumentList $arguments -WorkingDirectory (Split-Path $exe) -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logRoot 'server-out.log') -RedirectStandardError (Join-Path $logRoot 'server-error.log')
     Set-Content -LiteralPath $pidFile -Value $server.Id -Encoding Ascii
     $deadline=(Get-Date).AddMinutes(4)
