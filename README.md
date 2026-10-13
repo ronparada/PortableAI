@@ -7,6 +7,9 @@ downloads the selected model and the appropriate runtime to the USB drive.
 Start with [START-HERE.txt](START-HERE.txt). The numbered launchers in the
 Windows, macOS, and Linux folders provide setup, model launch, and shutdown.
 
+On Windows, `5-START-LAB-ASSISTANT.cmd` adds an optional local file assistant
+for a folder you select. See [Lab Assistant](Documentation/LAB-ASSISTANT.txt).
+
 The project intentionally excludes model files and runtime downloads. Run setup
 once while online from the USB drive; afterward the selected chat model works
 offline on a compatible computer.
