@@ -1,4 +1,4 @@
-param([ValidateSet('qwen','hermes')][string]$Model='qwen',[switch]$NoBrowser,[switch]$TestOnly)
+param([ValidateSet('qwen','hermes')][string]$Model='qwen',[switch]$NoBrowser,[switch]$TestOnly,[string]$LabRoot)
 $ErrorActionPreference='Stop'
 $systemRoot=Split-Path -Parent $PSScriptRoot; $root=Split-Path -Parent $systemRoot; $dataRoot=Join-Path $systemRoot 'data'; $logRoot=Join-Path $dataRoot 'logs'; $tempRoot=Join-Path $dataRoot 'temp'
 New-Item -ItemType Directory -Force -Path $dataRoot,$logRoot,$tempRoot | Out-Null
@@ -6,7 +6,7 @@ $env:LLAMA_CACHE=Join-Path $dataRoot 'cache'; $env:TEMP=$tempRoot; $env:TMP=$tem
 $models=@{qwen='Qwen3-4B-Q4_K_M.gguf';hermes='Hermes-3-Llama-3.2-3B-Q4_K_M.gguf'}
 $modelPath=Join-Path $systemRoot ('models\'+$models[$Model])
 if (-not (Test-Path -LiteralPath $modelPath)) { Write-Host "The selected language model is not on the USB. Run 1-SETUP-PORTABLE-CHAT.cmd first." -ForegroundColor Red; if (-not $TestOnly) { Read-Host 'Press Enter to close' | Out-Null }; exit 1 }
-$port=18765; $server=$null; $pidFile=Join-Path $dataRoot 'server.pid'
+$port=if ($LabRoot) { 18766 } else { 18765 }; $server=$null; $pidFile=Join-Path $dataRoot $(if ($LabRoot) { 'lab-server.pid' } else { 'server.pid' })
 function Stop-LeftoverPortableServer {
   $candidateIds=@()
   if (Test-Path -LiteralPath $pidFile) { $saved=Get-Content -LiteralPath $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1; if ($saved -match '^\d+$') { $candidateIds += [int]$saved } }
@@ -36,7 +36,7 @@ try {
   Stop-LeftoverPortableServer
   $activeListener=$false
   try { $activeListener=[bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction Stop) } catch {}
-  if ($activeListener) { throw "Port $port is busy. Run 4-STOP-PORTABLE-AI.cmd and try again." }
+  if ($activeListener) { throw "Port $port is busy. Close the other PortableAI window and try again." }
   if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { $backends=@(@{Name='CPU';Path='runtime\windows-arm64-cpu';Layers='0'}) }
   else { $backends=@(@{Name='Vulkan GPU';Path='runtime\windows-x64-vulkan';Layers='99'},@{Name='CPU';Path='runtime\windows-x64-cpu';Layers='0'}) }
   $ready=$false
@@ -59,6 +59,10 @@ try {
     $content=$response.choices[0].message.content
     if (-not $content) { throw 'The server loaded, but the model did not return a test response.' }
     Write-Host "Model response: $($content.Trim())" -ForegroundColor Green
+    return
+  }
+  if ($LabRoot) {
+    & (Join-Path $PSScriptRoot 'Lab-Assistant.ps1') -LabRoot $LabRoot -Port $port
     return
   }
   if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$port" | Out-Null }
