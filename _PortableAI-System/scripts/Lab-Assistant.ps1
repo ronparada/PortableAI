@@ -24,8 +24,9 @@ function Get-LabFiles([string]$folder) {
   while ($pending.Count) {
     $current=$pending.Dequeue()
     foreach ($item in (Get-ChildItem -LiteralPath $current -Force -ErrorAction SilentlyContinue)) {
-      if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { continue }
-      if ($item.PSIsContainer) { $pending.Enqueue($item.FullName) }
+      if ($item.PSIsContainer) {
+        if (-not ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { $pending.Enqueue($item.FullName) }
+      }
       else { $item }
     }
   }
@@ -40,6 +41,24 @@ function Invoke-LabTool([string]$name,$arguments) {
         Select-Object -First 100)
       $files=@($matches | ForEach-Object { [pscustomobject]@{path=$_.FullName.Substring($prefix.Length);bytes=$_.Length;hidden=[bool]($_.Attributes -band [IO.FileAttributes]::Hidden)} })
       return (@{count=$files.Count;files=$files} | ConvertTo-Json -Compress -Depth 5)
+    }
+    'search_files' {
+      $query=[string]$arguments.query
+      if ([string]::IsNullOrWhiteSpace($query)) { throw 'Enter a word to search for.' }
+      $textExtensions=@('.txt','.md','.csv','.json','.xml','.yml','.yaml','.log','.ini','.conf','.ps1','.sh','.cmd','.bat','.html')
+      $found=[Collections.Generic.List[object]]::new()
+      foreach ($item in (Get-LabFiles $root)) {
+        $nameMatch=$item.Name.IndexOf($query,[StringComparison]::OrdinalIgnoreCase) -ge 0
+        $contentMatch=$false
+        if (-not ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $item.Length -le 65536 -and $item.Extension -in $textExtensions) {
+          try { $contentMatch=(Get-Content -LiteralPath $item.FullName -Raw -ErrorAction Stop).IndexOf($query,[StringComparison]::OrdinalIgnoreCase) -ge 0 } catch {}
+        }
+        if ($nameMatch -or $contentMatch) {
+          $found.Add([pscustomobject]@{path=$item.FullName.Substring($prefix.Length);match=$(if ($nameMatch -and $contentMatch) {'name and content'} elseif ($nameMatch) {'name'} else {'content'});placeholder=[bool]($item.Attributes -band [IO.FileAttributes]::ReparsePoint)})
+          if ($found.Count -ge 100) { break }
+        }
+      }
+      return (@{count=$found.Count;files=@($found)} | ConvertTo-Json -Compress -Depth 5)
     }
     'read_text' {
       $path=Resolve-LabPath ([string]$arguments.path)
@@ -61,6 +80,7 @@ function Invoke-LabTool([string]$name,$arguments) {
 }
 $tools=@(
   @{type='function';function=@{name='find_files';description='Find files by wildcard name inside the selected lab folder, including hidden files. Maximum 100 results.';parameters=@{type='object';properties=@{pattern=@{type='string';description='Filename wildcard such as *flag*'}};required=@('pattern')}}},
+  @{type='function';function=@{name='search_files';description='Search filenames and small local text file contents for a literal word. Cloud placeholders are searchable by filename only.';parameters=@{type='object';properties=@{query=@{type='string';description='Literal word to search for, such as flag'}};required=@('query')}}},
   @{type='function';function=@{name='read_text';description='Read a small text file inside the selected lab folder using a relative path.';parameters=@{type='object';properties=@{path=@{type='string'}};required=@('path')}}},
   @{type='function';function=@{name='plan_screenshot_sort';description='Preview sorting images from a lab subfolder into year-month subfolders. This never moves files.';parameters=@{type='object';properties=@{folder=@{type='string';description='Relative folder such as Screenshots or .'}};required=@('folder')}}}
 )
@@ -99,6 +119,18 @@ while ($true) {
     $messages.Add(@{role='assistant';content=$answer})
     continue
   }
+  if ($inputText -match '(?i)\b(?:look(?:ing)?\s+for|find|search|locate)\b.*\b(?:word|called|named)\s*["'']?([A-Za-z0-9._-]+)') {
+    $query=$Matches[1]
+    try {
+      $data=Invoke-LabTool 'search_files' ([pscustomobject]@{query=$query}) | ConvertFrom-Json
+      if ($data.count -eq 0) { $answer="No files with '$query' in the name or local text content were found in the selected folder." }
+      else { $answer="Found $($data.count) file(s) matching '$query':`n" + (($data.files | ForEach-Object { $note=if ($_.placeholder) {'; cloud placeholder, name only'} else {''}; "- $($_.path) ($($_.match)$note)" }) -join "`n") }
+    } catch { $answer="Search failed: $_" }
+    Write-Host $answer -ForegroundColor DarkCyan
+    $messages.Add(@{role='user';content=$inputText})
+    $messages.Add(@{role='assistant';content=$answer})
+    continue
+  }
   $messages.Add(@{role='user';content=$inputText})
   try {
     for ($round=0; $round -lt 5; $round++) {
@@ -115,6 +147,11 @@ while ($true) {
                 $data=$result | ConvertFrom-Json
                 if ($data.count -eq 0) { $answer='No matching files found in the selected folder.' }
                 else { $answer="Found $($data.count) file(s):`n" + (($data.files | ForEach-Object { "- $($_.path)" }) -join "`n") }
+              }
+              'search_files' {
+                $data=$result | ConvertFrom-Json
+                if ($data.count -eq 0) { $answer='No matching files found in the selected folder.' }
+                else { $answer="Found $($data.count) file(s):`n" + (($data.files | ForEach-Object { "- $($_.path) ($($_.match))" }) -join "`n") }
               }
               'read_text' { $answer="File contents:`n$result" }
               'plan_screenshot_sort' {
