@@ -1,0 +1,26 @@
+PORTABLEAI - OPTIONAL LAB ASSISTANT (WINDOWS)
+=============================================
+
+Run the regular setup first and install Qwen. Then double-click
+Windows\5-START-LAB-ASSISTANT.cmd and choose a lab folder. You can type its
+full path or drag the folder into the window. Keep the window open while using
+the assistant. Type /exit when finished.
+
+Try prompts such as:
+  Find hidden files whose names contain flag.
+  Read the text file clues\note.txt.
+  Preview organizing the screenshots folder by month.
+
+The assistant searches only within the selected folder, including hidden
+files. It can read text files up to 64 KB. Its screenshot sort creates a
+preview; type /apply and then MOVE to approve the move. Files with destination
+name conflicts are skipped. It never runs arbitrary shell commands.
+
+The file tools are implemented in the launcher and enforce the selected
+folder boundary. Links and junctions are skipped. The local model may make
+mistakes, so review its search results and any proposed moves. Use a copied
+lab folder for exercises involving changes. The lab assistant runs on port
+18766, allowing the regular chat on port 18765 to remain separate.
+
+This optional launcher currently supports Windows. macOS and Linux retain the
+regular offline chat workflow.
