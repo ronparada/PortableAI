@@ -34,10 +34,12 @@ function Invoke-LabTool([string]$name,$arguments) {
   switch ($name) {
     'find_files' {
       $pattern=[string]$arguments.pattern; if (-not $pattern) { $pattern='*' }
-      $matches=Get-LabFiles $root |
+      if ($pattern -notmatch '[*?]') { $pattern="*$pattern*" }
+      $matches=@(Get-LabFiles $root |
         Where-Object { $_.Name -like $pattern } |
-        Select-Object -First 100
-      return (@($matches | ForEach-Object { [pscustomobject]@{path=$_.FullName.Substring($prefix.Length);bytes=$_.Length;hidden=[bool]($_.Attributes -band [IO.FileAttributes]::Hidden)} }) | ConvertTo-Json -Compress -Depth 4)
+        Select-Object -First 100)
+      $files=@($matches | ForEach-Object { [pscustomobject]@{path=$_.FullName.Substring($prefix.Length);bytes=$_.Length;hidden=[bool]($_.Attributes -band [IO.FileAttributes]::Hidden)} })
+      return (@{count=$files.Count;files=$files} | ConvertTo-Json -Compress -Depth 5)
     }
     'read_text' {
       $path=Resolve-LabPath ([string]$arguments.path)
@@ -52,7 +54,7 @@ function Invoke-LabTool([string]$name,$arguments) {
       $items=Get-ChildItem -LiteralPath $folder -File -Force | Where-Object { $_.Extension -in @('.png','.jpg','.jpeg','.webp','.bmp') }
       $plan=@($items | ForEach-Object { [pscustomobject]@{from=$_.FullName.Substring($prefix.Length);to=(Join-Path ($relative.TrimEnd('\','/')) ($_.CreationTime.ToString('yyyy-MM')+'\'+$_.Name)).TrimStart('\','/') } })
       $script:pendingPlan=$plan
-      return ($plan | Select-Object -First 100 | ConvertTo-Json -Compress -Depth 4)
+      return (@{count=$plan.Count;moves=@($plan | Select-Object -First 100)} | ConvertTo-Json -Compress -Depth 5)
     }
     default { throw "Unsupported tool: $name" }
   }
@@ -88,6 +90,15 @@ while ($true) {
     Write-Host "Moved $moved file(s)."; continue
   }
   if (-not $inputText) { continue }
+  if ($inputText -match '(?i)\b(?:open|read)\s+(?:the\s+)?(?:file\s+)?["'']?([A-Za-z0-9._\\/-]+\.[A-Za-z0-9]+)') {
+    $requestedFile=$Matches[1]
+    try { $answer="File contents:`n" + (Invoke-LabTool 'read_text' ([pscustomobject]@{path=$requestedFile})) }
+    catch { $answer="Cannot read '$requestedFile': $_" }
+    Write-Host $answer -ForegroundColor DarkCyan
+    $messages.Add(@{role='user';content=$inputText})
+    $messages.Add(@{role='assistant';content=$answer})
+    continue
+  }
   $messages.Add(@{role='user';content=$inputText})
   try {
     for ($round=0; $round -lt 5; $round++) {
@@ -95,14 +106,34 @@ while ($true) {
       $response=Invoke-RestMethod "http://127.0.0.1:$Port/v1/chat/completions" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 180
       $message=$response.choices[0].message
       if ($message.tool_calls) {
-        $messages.Add(@{role='assistant';content=$message.content;tool_calls=$message.tool_calls})
         foreach ($call in $message.tool_calls) {
-          try { $argsObject=$call.function.arguments | ConvertFrom-Json; $result=Invoke-LabTool $call.function.name $argsObject }
-          catch { $result="Tool error: $_" }
-          Write-Host "[$($call.function.name)] $result" -ForegroundColor DarkCyan
-          $messages.Add(@{role='tool';tool_call_id=$call.id;content=[string]$result})
+          try {
+            $argsObject=$call.function.arguments | ConvertFrom-Json
+            $result=Invoke-LabTool $call.function.name $argsObject
+            switch ($call.function.name) {
+              'find_files' {
+                $data=$result | ConvertFrom-Json
+                if ($data.count -eq 0) { $answer='No matching files found in the selected folder.' }
+                else { $answer="Found $($data.count) file(s):`n" + (($data.files | ForEach-Object { "- $($_.path)" }) -join "`n") }
+              }
+              'read_text' { $answer="File contents:`n$result" }
+              'plan_screenshot_sort' {
+                $data=$result | ConvertFrom-Json
+                if ($data.count -eq 0) { $answer='No images to organize in that folder.' }
+                else { $answer="Preview of $($data.count) move(s):`n" + (($data.moves | ForEach-Object { "- $($_.from) -> $($_.to)" }) -join "`n") + "`nType /apply to review and approve these moves." }
+              }
+              default { $answer=$result }
+            }
+          } catch { $answer="Tool error: $_" }
+          Write-Host $answer -ForegroundColor DarkCyan
+          $messages.Add(@{role='assistant';content=$answer})
         }
-      } else { Write-Host $message.content; $messages.Add(@{role='assistant';content=$message.content}); break }
+        break
+      } else {
+        if ($inputText -match '(?i)\b(find|search|locate|open|read|organize|sort)\b') { $answer='I could not verify that file request. Try stating the filename or folder more specifically.' }
+        else { $answer=$message.content }
+        Write-Host $answer; $messages.Add(@{role='assistant';content=$answer}); break
+      }
     }
   } catch { Write-Host "Request failed: $_" -ForegroundColor Red }
 }
