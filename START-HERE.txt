@@ -20,3 +20,9 @@ FIRST USE
 
 Setup needs internet only when an engine or model is missing. After setup,
 the portable chat models run locally and can work offline.
+
+OPTIONAL WINDOWS LAB ASSISTANT
+------------------------------
+After installing Qwen, run Windows\5-START-LAB-ASSISTANT.cmd and select a lab
+folder. It can search hidden files and preview organizing screenshots in that
+folder. See Documentation\LAB-ASSISTANT.txt for details.
