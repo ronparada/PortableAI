@@ -10,17 +10,24 @@ Explorer to locate it rather than guessing its path. A Screenshots folder may
 be under OneDrive\Pictures on Windows.
 
 Try prompts such as:
-  Find hidden files whose names contain flag.
+  Find files with the word flag in the name or text.
+  Find possible secret or suspicious filenames.
+  Open the files you just found.
   Read the text file clues\note.txt.
   Preview organizing the screenshots folder by month.
+  Create essay.txt about password safety.
 
 The assistant searches only within the selected folder, including hidden
-files. It can read text files up to 64 KB. Its screenshot sort creates a
-preview; type /apply and then MOVE to approve the move. Files with destination
-name conflicts are skipped. It never runs arbitrary shell commands.
+files. It can read text files up to 64 KB. A search for suspicious or secret
+files is based on filename clues and hidden attributes; it is not a malware
+scan. Creating a text file shows a preview first; type /apply and then CREATE
+to approve. The screenshot sort also creates a preview; type /apply and then
+MOVE to approve. Files with destination name conflicts are skipped. It never
+runs arbitrary shell commands.
 
 The file tools are implemented in the launcher and enforce the selected
-folder boundary. Links and junctions are skipped. The local model may make
+folder boundary. Links and junctions are skipped. OneDrive cloud placeholder
+filenames can be found; explicitly reading one may download it. The local model may make
 mistakes, so review its search results and any proposed moves. Use a copied
 lab folder for exercises involving changes. The lab assistant runs on port
 18766, allowing the regular chat on port 18765 to remain separate.
