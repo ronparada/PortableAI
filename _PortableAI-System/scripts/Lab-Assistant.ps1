@@ -97,6 +97,9 @@ $messages=[Collections.Generic.List[object]]::new()
 $messages.Add(@{role='system';content=$systemMessage})
 $script:pendingPlan=@()
 $script:lastFoundFile=$null
+$script:lastFoundFiles=@()
+$script:seenFiles=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$script:pendingTextFile=$null
 Write-Host "Lab Assistant ready. Folder: $root" -ForegroundColor Green
 Write-Host 'Type your questions in THIS terminal window. The browser chat does not have file tools.'
 Write-Host 'Type /apply to approve the last sort preview, or /exit.'
@@ -104,6 +107,19 @@ while ($true) {
   $inputText=Read-Host 'Lab'
   if ($inputText -eq '/exit') { break }
   if ($inputText -eq '/apply') {
+    if ($script:pendingTextFile) {
+      $draft=$script:pendingTextFile
+      Write-Host "Create '$($draft.path)' with the previewed text? Type CREATE to confirm."
+      if ((Read-Host 'Confirm') -ne 'CREATE') { Write-Host 'Cancelled.'; continue }
+      try {
+        $destination=Resolve-LabPath $draft.path
+        if (Test-Path -LiteralPath $destination) { throw 'That file already exists.' }
+        New-Item -ItemType File -Path $destination -Value $draft.content -ErrorAction Stop | Out-Null
+        Write-Host "Created $($draft.path)."
+      } catch { Write-Host "Could not create file: $_" -ForegroundColor Red }
+      $script:pendingTextFile=$null
+      continue
+    }
     if (-not $script:pendingPlan.Count) { Write-Host 'No pending sort plan.'; continue }
     Write-Host "Move $($script:pendingPlan.Count) file(s) as previewed? Type MOVE to confirm."
     if ((Read-Host 'Confirm') -ne 'MOVE') { Write-Host 'Cancelled.'; continue }
@@ -119,6 +135,62 @@ while ($true) {
     Write-Host "Moved $moved file(s)."; continue
   }
   if (-not $inputText) { continue }
+  if ($inputText -match '(?i)\b(?:create|make|write)\b.*\b(?:file|essay)\b') {
+    $filenameMatch=[regex]::Match($inputText,'(?i)\b([A-Za-z0-9_-]+\.(?:txt|md))\b')
+    if (-not $filenameMatch.Success) {
+      Write-Host 'What filename and topic should I use? Try: create essay.txt about password safety.'
+      continue
+    }
+    $filename=$filenameMatch.Groups[1].Value
+    $topicMatch=[regex]::Match($inputText,'(?i)\babout\s+(.+?)[?.!]*$')
+    if (-not $topicMatch.Success) { Write-Host 'What should the file say? Try: create essay.txt about password safety.'; continue }
+    $topic=$topicMatch.Groups[1].Value.Trim()
+    try {
+      $destination=Resolve-LabPath $filename
+      if (Test-Path -LiteralPath $destination) { throw 'That file already exists.' }
+      $body=@{model='portable-ai';messages=@(@{role='system';content='Write a concise plain-text essay for a classroom lab. Return only the essay text. No markdown.'},@{role='user';content="Write an essay about: $topic"});temperature=0.4;max_tokens=650} | ConvertTo-Json -Depth 10
+      $response=Invoke-RestMethod "http://127.0.0.1:$Port/v1/chat/completions" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 180
+      $draft=[string]$response.choices[0].message.content
+      if ([string]::IsNullOrWhiteSpace($draft)) { throw 'The model returned no text.' }
+      $script:pendingTextFile=[pscustomobject]@{path=$filename;content=$draft}
+      Write-Host "Preview of $filename`:`n$draft`nType /apply to review and approve creating this file." -ForegroundColor DarkCyan
+    } catch { Write-Host "Could not prepare file: $_" -ForegroundColor Red }
+    continue
+  }
+  if ($inputText -match '(?i)\b(?:suspicious|secret|hidden|interesting)\b') {
+    $terms=if ($inputText -match '(?i)\bsuspicious\b') { @('flag','secret','password','passw','hack','hidden','private','key','credential','token') } else { @('flag','secret','hidden','private','password','passw','key','credential','token') }
+    $matches=@(Get-LabFiles $root | Where-Object { $name=$_.Name; $name -ne 'desktop.ini' -and (($($_.Attributes -band [IO.FileAttributes]::Hidden)) -or @($terms | Where-Object { $name.IndexOf($_,[StringComparison]::OrdinalIgnoreCase) -ge 0 }).Count -gt 0) } | Select-Object -First 100)
+    $script:lastFoundFiles=@($matches | ForEach-Object { $_.FullName.Substring($prefix.Length) })
+    $script:lastFoundFile=if ($script:lastFoundFiles.Count -eq 1) { $script:lastFoundFiles[0] } else { $null }
+    if ($matches.Count -eq 0) { $answer='No filenames or hidden files matched the common clue words. This is only a clue search, not a malware scan.' }
+    else { $answer="Possible clues by filename or hidden attribute (not a malware verdict):`n" + (($script:lastFoundFiles | ForEach-Object { [void]$script:seenFiles.Add($_); "- $_" }) -join "`n") }
+    Write-Host $answer -ForegroundColor DarkCyan
+    continue
+  }
+  if ($inputText -match '(?i)^\s*(?:can you\s+)?(?:open|read|show)\s+(?:the\s+)?(?:said|found|those|these)\s+files?\s*[?.!]*\s*$') {
+    if (-not $script:lastFoundFiles.Count) { Write-Host 'Search for files first so I know which ones you mean.'; continue }
+    foreach ($file in ($script:lastFoundFiles | Select-Object -First 10)) {
+      try { Write-Host "${file}:`n$(Invoke-LabTool 'read_text' ([pscustomobject]@{path=$file}))" -ForegroundColor DarkCyan }
+      catch { Write-Host "Cannot read '$file': $_" -ForegroundColor DarkCyan }
+    }
+    continue
+  }
+  if ($inputText -match '(?i)^\s*(?:can you\s+)?open\s+([A-Za-z0-9_-]+)\s+file\s*[?.!]*\s*$') {
+    $query=$Matches[1]
+    $candidates=@(Get-LabFiles $root | Where-Object { $_.Name.IndexOf($query,[StringComparison]::OrdinalIgnoreCase) -ge 0 } | Select-Object -First 11)
+    if ($candidates.Count -eq 1) {
+      $file=$candidates[0].FullName.Substring($prefix.Length)
+      try { Write-Host "${file}:`n$(Invoke-LabTool 'read_text' ([pscustomobject]@{path=$file}))" -ForegroundColor DarkCyan } catch { Write-Host "Cannot read '$file': $_" }
+    } elseif ($candidates.Count -eq 0) { Write-Host "No filename contains '$query'." }
+    else { Write-Host "Several filenames contain '$query'. Give the full filename." }
+    continue
+  }
+  if ($inputText -match '(?i)^\s*(?:anything else|any others?)\s*[?.!]*\s*$') {
+    $other=@(Get-LabFiles $root | Where-Object { -not $script:seenFiles.Contains($_.FullName.Substring($prefix.Length)) } | Select-Object -First 20)
+    if ($other.Count -eq 0) { Write-Host 'No other files found in the selected folder.' }
+    else { Write-Host ("Other files:`n" + (($other | ForEach-Object { $relative=$_.FullName.Substring($prefix.Length); [void]$script:seenFiles.Add($relative); "- $relative" }) -join "`n")) }
+    continue
+  }
   if ($inputText -match '(?i)^\s*(?:can you\s+)?(?:open|read|show)(?:\s+me)?\s+it\s*[?.!]*\s*$') {
     if ($script:lastFoundFile) {
       try { $answer="File contents:`n" + (Invoke-LabTool 'read_text' ([pscustomobject]@{path=$script:lastFoundFile})) }
@@ -138,11 +210,12 @@ while ($true) {
     $messages.Add(@{role='assistant';content=$answer})
     continue
   }
-  if ($inputText -match '(?i)\b(?:look(?:ing)?\s+for|find|search|locate)\b.*\b(?:word|called|named)\s*["'']?([A-Za-z0-9._-]+)') {
+  if ($inputText -match '(?i)\b(?:look(?:ing)?\s+for|find|search|locate|what\s+about)\b.*\b(?:word|called|named)\s*["'']?([A-Za-z0-9._-]+)') {
     $query=$Matches[1]
     try {
       $data=Invoke-LabTool 'search_files' ([pscustomobject]@{query=$query}) | ConvertFrom-Json
       $script:lastFoundFile=if ($data.count -eq 1) { [string]$data.files[0].path } else { $null }
+      $script:lastFoundFiles=@($data.files | ForEach-Object { [string]$_.path; [void]$script:seenFiles.Add([string]$_.path) })
       if ($data.count -eq 0) { $answer="No files with '$query' in the name or local text content were found in the selected folder." }
       else { $answer="Found $($data.count) file(s) matching '$query':`n" + (($data.files | ForEach-Object { $note=if ($_.placeholder) {'; cloud placeholder, name only'} else {''}; "- $($_.path) ($($_.match)$note)" }) -join "`n") }
     } catch { $answer="Search failed: $_" }
@@ -166,12 +239,14 @@ while ($true) {
               'find_files' {
                 $data=$result | ConvertFrom-Json
                 $script:lastFoundFile=if ($data.count -eq 1) { [string]$data.files[0].path } else { $null }
+                $script:lastFoundFiles=@($data.files | ForEach-Object { [string]$_.path; [void]$script:seenFiles.Add([string]$_.path) })
                 if ($data.count -eq 0) { $answer='No matching files found in the selected folder.' }
                 else { $answer="Found $($data.count) file(s):`n" + (($data.files | ForEach-Object { "- $($_.path)" }) -join "`n") }
               }
               'search_files' {
                 $data=$result | ConvertFrom-Json
                 $script:lastFoundFile=if ($data.count -eq 1) { [string]$data.files[0].path } else { $null }
+                $script:lastFoundFiles=@($data.files | ForEach-Object { [string]$_.path; [void]$script:seenFiles.Add([string]$_.path) })
                 if ($data.count -eq 0) { $answer='No matching files found in the selected folder.' }
                 else { $answer="Found $($data.count) file(s):`n" + (($data.files | ForEach-Object { "- $($_.path) ($($_.match))" }) -join "`n") }
               }
