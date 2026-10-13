@@ -3,7 +3,11 @@ $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Resolve-Path -LiteralPath $LabRoot -ErrorAction Stop).Path).TrimEnd('\','/')
 if (-not (Test-Path -LiteralPath $root -PathType Container)) { throw 'Choose a folder for the lab.' }
 $prefix=$root+[IO.Path]::DirectorySeparatorChar
-function Resolve-LabPath([string]$relative) {
+function Test-CloudPlaceholder([string]$path) {
+  $details=& fsutil reparsepoint query $path 2>$null | Out-String
+  return ($details -match '(?i)0x9000[0-9a-f]01a\b')
+}
+function Resolve-LabPath([string]$relative,[bool]$allowCloudFile=$false) {
   if ([IO.Path]::IsPathRooted($relative)) { throw 'Use a path relative to the lab folder.' }
   $candidate=[IO.Path]::GetFullPath((Join-Path $root $relative))
   if ($candidate -ne $root -and -not $candidate.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)) { throw 'Path is outside the lab folder.' }
@@ -13,7 +17,11 @@ function Resolve-LabPath([string]$relative) {
     $walk=Join-Path $walk $part
     if (Test-Path -LiteralPath $walk) {
       $item=Get-Item -LiteralPath $walk -Force
-      if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Links and junctions are not allowed in the lab folder.' }
+      if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        if (-not ($allowCloudFile -and $walk -eq $candidate -and -not $item.PSIsContainer -and (Test-CloudPlaceholder $walk))) {
+          throw 'Links and junctions are not allowed in the lab folder.'
+        }
+      }
     }
   }
   return $candidate
@@ -61,7 +69,7 @@ function Invoke-LabTool([string]$name,$arguments) {
       return (@{count=$found.Count;files=@($found)} | ConvertTo-Json -Compress -Depth 5)
     }
     'read_text' {
-      $path=Resolve-LabPath ([string]$arguments.path)
+      $path=Resolve-LabPath ([string]$arguments.path) $true
       $item=Get-Item -LiteralPath $path -Force -ErrorAction Stop
       if ($item.PSIsContainer -or $item.Length -gt 65536) { throw 'Only text files up to 64 KB can be read.' }
       return (Get-Content -LiteralPath $path -Raw -ErrorAction Stop)
@@ -88,6 +96,7 @@ $systemMessage="You are a local lab assistant. You can search and read only insi
 $messages=[Collections.Generic.List[object]]::new()
 $messages.Add(@{role='system';content=$systemMessage})
 $script:pendingPlan=@()
+$script:lastFoundFile=$null
 Write-Host "Lab Assistant ready. Folder: $root" -ForegroundColor Green
 Write-Host 'Type your questions in THIS terminal window. The browser chat does not have file tools.'
 Write-Host 'Type /apply to approve the last sort preview, or /exit.'
@@ -110,6 +119,16 @@ while ($true) {
     Write-Host "Moved $moved file(s)."; continue
   }
   if (-not $inputText) { continue }
+  if ($inputText -match '(?i)^\s*(?:can you\s+)?(?:open|read|show)(?:\s+me)?\s+it\s*[?.!]*\s*$') {
+    if ($script:lastFoundFile) {
+      try { $answer="File contents:`n" + (Invoke-LabTool 'read_text' ([pscustomobject]@{path=$script:lastFoundFile})) }
+      catch { $answer="Cannot read '$($script:lastFoundFile)': $_" }
+    } else { $answer='I do not have a single file to open yet. Search for a file or give its name.' }
+    Write-Host $answer -ForegroundColor DarkCyan
+    $messages.Add(@{role='user';content=$inputText})
+    $messages.Add(@{role='assistant';content=$answer})
+    continue
+  }
   if ($inputText -match '(?i)\b(?:open|read)\s+(?:the\s+)?(?:file\s+)?["'']?([A-Za-z0-9._\\/-]+\.[A-Za-z0-9]+)') {
     $requestedFile=$Matches[1]
     try { $answer="File contents:`n" + (Invoke-LabTool 'read_text' ([pscustomobject]@{path=$requestedFile})) }
@@ -123,6 +142,7 @@ while ($true) {
     $query=$Matches[1]
     try {
       $data=Invoke-LabTool 'search_files' ([pscustomobject]@{query=$query}) | ConvertFrom-Json
+      $script:lastFoundFile=if ($data.count -eq 1) { [string]$data.files[0].path } else { $null }
       if ($data.count -eq 0) { $answer="No files with '$query' in the name or local text content were found in the selected folder." }
       else { $answer="Found $($data.count) file(s) matching '$query':`n" + (($data.files | ForEach-Object { $note=if ($_.placeholder) {'; cloud placeholder, name only'} else {''}; "- $($_.path) ($($_.match)$note)" }) -join "`n") }
     } catch { $answer="Search failed: $_" }
@@ -145,11 +165,13 @@ while ($true) {
             switch ($call.function.name) {
               'find_files' {
                 $data=$result | ConvertFrom-Json
+                $script:lastFoundFile=if ($data.count -eq 1) { [string]$data.files[0].path } else { $null }
                 if ($data.count -eq 0) { $answer='No matching files found in the selected folder.' }
                 else { $answer="Found $($data.count) file(s):`n" + (($data.files | ForEach-Object { "- $($_.path)" }) -join "`n") }
               }
               'search_files' {
                 $data=$result | ConvertFrom-Json
+                $script:lastFoundFile=if ($data.count -eq 1) { [string]$data.files[0].path } else { $null }
                 if ($data.count -eq 0) { $answer='No matching files found in the selected folder.' }
                 else { $answer="Found $($data.count) file(s):`n" + (($data.files | ForEach-Object { "- $($_.path) ($($_.match))" }) -join "`n") }
               }
